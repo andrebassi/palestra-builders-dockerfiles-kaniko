@@ -1,0 +1,49 @@
+podTemplate(
+    containers: [
+        containerTemplate(
+            name: 'kaniko',
+            image: 'gcr.io/kaniko-project/executor:debug-v0.16.0',
+            ttyEnabled: true,
+            command: '/busybox/cat'
+        )
+    ],
+
+     volumes: [
+        secretVolume(
+            mountPath: '/secret',
+            secretName: '/secret/inovacao.json'
+        ),
+        configMapVolume(
+            mountPath: '/kaniko/.docker',
+            configMapName: 'docker-config'
+
+        ),
+
+    ]
+) {
+
+    node(POD_LABEL) {
+        stage('Git Checkout') {
+            checkout scm
+        }
+            
+        stage('Build Docker Image') {
+            container('kaniko') {
+                try {
+                   sh """
+                        /kaniko/executor \
+                            -f `pwd`/Dockerfile \
+                            -c `pwd` \
+                            --destination=gcr.io/inovacao-207620/meetup-jenkins-buid:1.0.5
+                    """
+                }
+
+                catch(dockerErr) {
+                    echo '[FAILURE] Failed to create Docker image'
+                    currentBuild.result = 'FAILURE'
+                    error()
+                }
+            }
+        }
+    }
+}
